@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGMHSS - Advanced OMR Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; margin: 0; background-color: #f8fafc; color: #0f172a; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; color: #1e293b; font-size: 28px; }
+        .status { text-align: center; font-weight: bold; padding: 10px; background: #e0f2fe; color: #0369a1; border-radius: 6px; margin-bottom: 20px; border: 1px solid #bae6fd; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; max-width: 1400px; margin: auto; }
+        .panel { background: #ffffff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+        .panel h2 { margin-top: 0; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; color: #334155; }
+        .panel h3 { margin-top: 0; font-size: 16px; color: #475569; }
+        
+        label { display: block; margin-top: 12px; font-size: 13px; font-weight: 600; color: #475569; }
+        input[type="text"], input[type="date"], input[type="number"] { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        input[type="file"] { margin-top: 15px; width: 100%; padding: 10px; border: 1px dashed #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; }
+        
+        .row { display: flex; gap: 15px; align-items: flex-end; }
+        .col { flex: 1; }
+        
+        button { width: 100%; padding: 12px; margin-top: 15px; font-size: 15px; font-weight: bold; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        button:disabled { background: #94a3b8 !important; cursor: not-allowed; }
+        .btn-blue { background: #2563eb; } .btn-blue:hover { background: #1d4ed8; }
+        .btn-green { background: #16a34a; } .btn-green:hover { background: #15803d; }
+        .btn-indigo { background: #4f46e5; } .btn-indigo:hover { background: #4338ca; }
+        .btn-cyan { background: #0891b2; } .btn-cyan:hover { background: #0e7490; }
+
+        .score-display { font-size: 28px; font-weight: bold; color: #16a34a; text-align: center; margin-top: 20px; padding: 15px; background: #dcfce7; border-radius: 8px; border: 1px solid #bbf7d0; display: none; }
+        
+        canvas { max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 10px; background: #f8fafc; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>AGMHSS Assessment Portal</h1>
+    </div>
+
+    <div id="statusMessage" class="status">Loading OpenCV.js Engine... Please wait.</div>
+
+    <div class="dashboard-grid">
+        
+        <div class="panel">
+            <h2>🖨️ 1. Print Hub</h2>
+            <label>Exam Name (For Blank PDF)</label>
+            <input type="text" id="printExamName" value="AGMHSS Quarterly Exam">
+            <button class="btn-indigo" onclick="generateOMRPDF()">Download Blank OMR Sheet</button>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 2px dashed #e2e8f0;">
+                <h3>📊 Generate Reports</h3>
+                
+                <label>1. Class Marks Statement</label>
+                <div class="row">
+                    <div class="col" style="flex: 2;"><input type="text" id="reportExamCode" placeholder="Exam Code (e.g., PHY-101)"></div>
+                    <div class="col" style="flex: 1;"><button class="btn-cyan" style="margin-top: 5px;" onclick="printClassStatement()">Print Class</button></div>
+                </div>
+
+                <label style="margin-top: 15px;">2. Student Progress Report</label>
+                <div class="row">
+                    <div class="col" style="flex: 2;"><input type="text" id="reportExamNo" placeholder="Exam No (e.g., 202601)"></div>
+                    <div class="col" style="flex: 1;"><button class="btn-indigo" style="margin-top: 5px;" onclick="printStudentReport()">Print Student</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>⚙️ 2. Scanner Configuration</h2>
+            <label>Answer Key (25 Questions, Comma separated)</label>
+            <input type="text" id="answerKey" value="A,B,C,D,A,B,C,D,A,B,C,D,A,B,C,D,A,B,C,D,A,B,C,D,A">
+            
+            <div class="row">
+                <div class="col"><label>Exam Code</label><input type="text" id="examCode" value="PHY-101"></div>
+                <div class="col"><label>Exam Date</label><input type="date" id="examDate" value="2026-06-01"></div>
+            </div>
+
+            <h2 style="margin-top: 25px;">📷 3. Scan Sheet</h2>
+            <input type="file" id="fileInput" accept="image/*" disabled>
+            <button id="processBtn" class="btn-blue" disabled>Analyze Sheet & Grade</button>
+        </div>
+
+        <div class="panel">
+            <h2>👤 4. Scanned Results & Submission</h2>
+            <p style="font-size: 12px; color: #64748b; margin-top: -5px;">Exam No is auto-detected. Verify and add Name.</p>
+            
+            <label>Exam No (Auto-Read from Bubbles)</label>
+            <input type="text" id="examNo" placeholder="Waiting for scan..." style="background: #fef9c3; font-weight: bold;">
+            
+            <label>Student Name</label>
+            <input type="text" id="studentName" placeholder="Enter Name Manually">
+            
+            <div class="row">
+                <div class="col"><label>Class</label><input type="text" id="studentClass" value="10"></div>
+                <div class="col"><label>Section</label><input type="text" id="studentSection" value="A"></div>
+            </div>
+
+            <div id="scoreResult" class="score-display">
+                Score: <span id="finalScoreText">0</span> / 25
+            </div>
+            
+            <button id="submitBtn" class="btn-green hidden">Save to Master Sheet</button>
+        </div>
+
+        <div class="panel" style="grid-column: 1 / -1; max-width: 700px; margin: auto;">
+            <h2>👁️ AI Vision Output</h2>
+            <p style="font-size: 13px; color: #64748b;">Blue = Detected Roll No | Green = Correct Answer | Red = Wrong Answer</p>
+            <canvas id="canvasWarped"></canvas>
+            <canvas id="canvasInput" class="hidden"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION (PASTE YOUR WEB APP URL HERE)
+        // ==========================================
+        const SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+        const TOTAL_QUESTIONS = 25;
+        const ROLL_DIGITS = 6;
+
+        // ==========================================
+        // 1. PDF GENERATOR (jsPDF)
+        // ==========================================
+        function generateOMRPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const examName = document.getElementById('printExamName').value;
+
+            doc.setFillColor(0, 0, 0);
+            doc.rect(10, 10, 10, 10, 'F'); doc.rect(190, 10, 10, 10, 'F');
+            doc.rect(10, 277, 10, 10, 'F'); doc.rect(190, 277, 10, 10, 'F');
+
+            doc.setFontSize(16); doc.setFont("helvetica", "bold");
+            doc.text("AGMHSS Patteeswaram", 105, 20, { align: "center" });
+            doc.setFontSize(12); doc.setFont("helvetica", "normal");
+            doc.text(`Exam: ${examName}`, 30, 35);
+            doc.text("Name: ______________________", 30, 48);
+            doc.text("Class & Sec: ___________", 30, 61);
+
+            doc.setFontSize(10); doc.setFont("helvetica", "bold");
+            doc.text("Exam No:", 135, 33);
+            doc.setFont("helvetica", "normal");
+            
+            for (let col = 0; col < ROLL_DIGITS; col++) {
+                for (let row = 0; row < 10; row++) {
+                    let bx = 138 + (col * 7); 
+                    let by = 38 + (row * 6);  
+                    doc.circle(bx, by, 2.5, 'S');
+                    doc.setFontSize(6);
+                    doc.text(row.toString(), bx - 0.8, by + 1);
+                }
+            }
+
+            doc.setFontSize(10);
+            for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+                let col = i <= 13 ? 0 : 1;
+                let row = i <= 13 ? (i - 1) : (i - 14);
+                let qx = 30 + (col * 80);
+                let qy = 115 + (row * 11);
+                
+                doc.text(`${i}.`, qx, qy + 1);
+                ['A', 'B', 'C', 'D'].forEach((opt, idx) => {
+                    let bx = qx + 10 + (idx * 10);
+                    doc.circle(bx, qy, 3, 'S');
+                    doc.setFontSize(7);
+                    doc.text(opt, bx - 1, qy + 1);
+                });
+            }
+            doc.save(`${examName.replace(/\s+/g, '_')}_OMR.pdf`);
+        }
+
+        // ==========================================
+        // 2. COMPUTER VISION ENGINE (OpenCV.js)
+        // ==========================================
+        let imgElement = new Image(), inputElement = document.getElementById('fileInput'), canvasInput = document.getElementById('canvasInput'), ctxInput = canvasInput.getContext('2d');
+        let calculatedScore = 0;
+
+        function onOpenCvReady() {
+            let status = document.getElementById('statusMessage');
+            status.innerText = '✅ System Ready. Select an OMR image to scan.';
+            status.style.backgroundColor = '#dcfce7'; status.style.color = '#166534'; status.style.borderColor = '#bbf7d0';
+            inputElement.disabled = false;
+        }
+
+        inputElement.addEventListener('change', (e) => {
+            if (!e.target.files[0]) return;
+            let reader = new FileReader();
+            reader.onload = function(event) { imgElement.src = event.target.result; };
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        imgElement.onload = function() {
+            let scale = (imgElement.width > 1200) ? 1200 / imgElement.width : 1;
+            canvasInput.width = imgElement.width * scale; canvasInput.height = imgElement.height * scale;
+            ctxInput.drawImage(imgElement, 0, 0, canvasInput.width, canvasInput.height);
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('scoreResult').style.display = 'none';
+            document.getElementById('submitBtn').classList.add('hidden');
+        };
+
+        function sortPoints(p) {
+            p.sort((a, b) => a.x - b.x);
+            let l = [p[0], p[1]].sort((a, b) => a.y - b.y);
+            let r = [p[2], p[3]].sort((a, b) => a.y - b.y);
+            return [l[0].x, l[0].y, r[0].x, r[0].y, r[1].x, r[1].y, l[1].x, l[1].y];
+        }
+
+        function mmToPx(x_mm, y_mm) {
+            return { x: Math.round(((x_mm - 15) / 180) * 500), y: Math.round(((y_mm - 15) / 267) * 700) };
+        }
+
+        function getRollNoCoords() {
+            let cols = [];
+            for (let c = 0; c < ROLL_DIGITS; c++) {
+                let colBubbles = [];
+                for (let r = 0; r < 10; r++) { colBubbles.push({ label: r.toString(), ...mmToPx(138 + (c * 7), 38 + (r * 6)) }); }
+                cols.push(colBubbles);
+            }
+            return cols;
+        }
+
+        function getQuestionCoords(qNum) {
+            let col = qNum <= 13 ? 0 : 1;
+            let row = qNum <= 13 ? (qNum - 1) : (qNum - 14);
+            let qx = 30 + (col * 80), qy = 115 + (row * 11);
+            return ['A', 'B', 'C', 'D'].map((lbl, idx) => ({ label: lbl, ...mmToPx(qx + 10 + (idx * 10), qy) }));
+        }
+
+        document.getElementById('processBtn').addEventListener('click', () => {
+            let src = cv.imread('canvasInput');
+            let gray = new cv.Mat(), thresh = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
+
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+            cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+            cv.adaptiveThreshold(gray, thresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 2);
+            cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+            let detectedCorners = [];
+            for (let i = 0; i < contours.size(); ++i) {
+                let cnt = contours.get(i), approx = new cv.Mat();
+                cv.approxPolyDP(cnt, approx, 0.03 * cv.arcLength(cnt, true), true);
+                if (approx.rows === 4) {
+                    let rect = cv.boundingRect(cnt), ar = rect.width / rect.height;
+                    if (ar >= 0.7 && ar <= 1.3 && rect.width > 15) {
+                        detectedCorners.push({ x: rect.x + rect.width/2, y: rect.y + rect.height/2, area: rect.width * rect.height });
+                    }
+                }
+                approx.delete();
+            }
+
+            detectedCorners.sort((a, b) => b.area - a.area);
+            let finalCorners = detectedCorners.slice(0, 4);
+
+            if (finalCorners.length === 4) {
+                let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, sortPoints(finalCorners));
+                let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, 500, 0, 500, 700, 0, 700]);
+                let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                let warped = new cv.Mat(), warpedGray = new cv.Mat(), warpedThresh = new cv.Mat();
+                
+                cv.warpPerspective(src, warped, M, new cv.Size(500, 700));
+                cv.cvtColor(warped, warpedGray, cv.COLOR_RGBA2GRAY, 0);
+                cv.adaptiveThreshold(warpedGray, warpedThresh, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 11, 4);
+
+                let rollNoStr = "";
+                getRollNoCoords().forEach(colObj => {
+                    let maxPx = 0, selectedDigit = "?";
+                    colObj.forEach(opt => {
+                        let roi = warpedThresh.roi(new cv.Rect(Math.max(0, opt.x - 6), Math.max(0, opt.y - 6), 12, 12));
+                        let px = cv.countNonZero(roi);
+                        if (px > maxPx && px > 40) { maxPx = px; selectedDigit = opt.label; }
+                        roi.delete();
+                    });
+                    rollNoStr += selectedDigit;
+                    
+                    colObj.forEach(opt => {
+                        cv.circle(warped, new cv.Point(opt.x, opt.y), (opt.label === selectedDigit) ? 5 : 2, 
+                            (opt.label === selectedDigit) ? new cv.Scalar(59, 130, 246, 255) : new cv.Scalar(200, 200, 200, 255), -1);
+                    });
+                });
+                document.getElementById('examNo').value = rollNoStr;
+
+                const answerKey = document.getElementById('answerKey').value.split(',').map(s => s.trim().toUpperCase());
+                calculatedScore = 0;
+
+                for (let q = 1; q <= TOTAL_QUESTIONS; q++) {
+                    let options = getQuestionCoords(q), selected = "?", maxPx = 0;
+                    options.forEach(opt => {
+                        let roi = warpedThresh.roi(new cv.Rect(Math.max(0, opt.x - 7), Math.max(0, opt.y - 7), 14, 14));
+                        let px = cv.countNonZero(roi);
+                        if (px > maxPx && px > 45) { maxPx = px; selected = opt.label; }
+                        roi.delete();
+                    });
+
+                    let isCorrect = (selected === answerKey[q - 1]);
+                    if (isCorrect) calculatedScore++;
+
+                    options.forEach(opt => {
+                        let color = (opt.label === selected) ? (isCorrect ? new cv.Scalar(34, 197, 94, 255) : new cv.Scalar(239, 68, 68, 255)) : new cv.Scalar(200, 200, 200, 255);
+                        cv.circle(warped, new cv.Point(opt.x, opt.y), (opt.label === selected) ? 6 : 2, color, -1);
+                    });
+                }
+
+                document.getElementById('finalScoreText').innerText = calculatedScore;
+                document.getElementById('scoreResult').style.display = 'block';
+                document.getElementById('submitBtn').classList.remove('hidden');
+                cv.imshow('canvasWarped', warped);
+
+                srcTri.delete(); dstTri.delete(); M.delete(); warped.delete(); warpedGray.delete(); warpedThresh.delete();
+            } else {
+                alert(`Alignment failed. Ensure all 4 corner black squares are visible.`);
+            }
+            src.delete(); gray.delete(); thresh.delete(); contours.delete(); hierarchy.delete();
+        });
+
+        // ==========================================
+        // 3. MASTER SHEET NETWORK COMMUNICATION
+        // ==========================================
+        document.getElementById('submitBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('submitBtn');
+            const examNo = document.getElementById('examNo').value;
+            const name = document.getElementById('studentName').value;
+            
+            if(!examNo || examNo.includes('?')) { alert("Please verify the Exam No before submitting."); return; }
+            if(SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') { alert("Please replace SCRIPT_URL with your Google Apps Script Web App URL."); return; }
+
+            btn.innerText = 'Submitting Data...'; btn.disabled = true;
+
+            const payload = {
+                examNo: examNo, name: name || 'Not Provided',
+                studentClass: document.getElementById('studentClass').value, section: document.getElementById('studentSection').value,
+                examDate: document.getElementById('examDate').value, examCode: document.getElementById('examCode').value,
+                score: calculatedScore
+            };
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                const result = await response.json();
+                
+                if(result.status === 'success') {
+                    btn.innerText = 'Saved Successfully!';
+                    setTimeout(() => {
+                        btn.innerText = 'Save to Master Sheet'; btn.disabled = false;
+                        document.getElementById('examNo').value = ''; document.getElementById('studentName').value = '';
+                        document.getElementById('scoreResult').style.display = 'none'; btn.classList.add('hidden');
+                    }, 2500);
+                } else throw new Error();
+            } catch (error) { alert("Failed to save. Check internet or Web App URL."); btn.innerText = 'Save to Master Sheet'; btn.disabled = false; }
+        });
+
+        async function printClassStatement() {
+            const code = document.getElementById('reportExamCode').value;
+            if (!code) { alert("Please enter an Exam Code to fetch."); return; }
+            try {
+                const response = await fetch(`${SCRIPT_URL}?examCode=${encodeURIComponent(code)}`);
+                const data = await response.json();
+                if (!data || data.length === 0) { alert("No data found."); return; }
+                let win = window.open('', '_blank');
+                let html = `<html><head><title>Marks Statement - ${code}</title><style>body{font-family:sans-serif; padding:20px;} table{width:100%; border-collapse:collapse; margin-top:20px;} th,td{border:1px solid #000; padding:8px; text-align:center;} th{background:#f2f2f2;}</style></head><body><h2 style="text-align:center;">AGMHSS Patteeswaram</h2><h4 style="text-align:center;">Class Marks Statement: ${code}</h4><table><tr><th>Exam No</th><th>Name</th><th>Class & Sec</th><th>Score</th></tr>`;
+                data.forEach(r => { html += `<tr><td>${r['Exam No']}</td><td>${r['Name']}</td><td>${r['Class']} - ${r['Section']}</td><td><b>${r['Score']}</b> / 25</td></tr>`; });
+                html += `</table></body></html>`;
+                win.document.write(html); win.document.close(); setTimeout(() => { win.print(); }, 500);
+            } catch(e) { alert("Error fetching report."); }
+        }
+
+        async function printStudentReport() {
+            const rollNo = document.getElementById('reportExamNo').value;
+            if (!rollNo) { alert("Please enter an Exam No to fetch."); return; }
+            try {
+                const response = await fetch(`${SCRIPT_URL}?examNo=${encodeURIComponent(rollNo)}`);
+                const data = await response.json();
+                if (!data || data.length === 0) { alert("No data found for this student."); return; }
+                const studentName = data[0]['Name'] || 'Unknown', studentClass = `${data[0]['Class'] || ''} - ${data[0]['Section'] || ''}`;
+                let win = window.open('', '_blank');
+                let html = `<html><head><title>Student Report - ${rollNo}</title><style>body{font-family:sans-serif; padding:20px;} table{width:100%; border-collapse:collapse; margin-top:20px;} th,td{border:1px solid #000; padding:10px; text-align:center;} th{background:#f8fafc;} .header-box { border: 2px solid #000; padding: 15px; margin-bottom: 20px; border-radius: 8px;}</style></head><body><h2 style="text-align:center;">AGMHSS Patteeswaram</h2><h3 style="text-align:center;">Student Progress Report</h3><div class="header-box"><strong>Exam No:</strong> ${rollNo} &nbsp;&nbsp;&nbsp;| &nbsp;&nbsp;&nbsp;<strong>Name:</strong> ${studentName} &nbsp;&nbsp;&nbsp;| &nbsp;&nbsp;&nbsp;<strong>Class:</strong> ${studentClass}</div><table><tr><th>Exam Date</th><th>Exam Code</th><th>Score</th></tr>`;
+                let totalScore = 0;
+                data.forEach(r => {
+                    html += `<tr><td>${r['Exam Date'].split('T')[0]}</td><td>${r['Exam Code']}</td><td><b>${r['Score']}</b> / 25</td></tr>`;
+                    totalScore += Number(r['Score']);
+                });
+                html += `<tr><td colspan="2" style="text-align:right;"><b>Average Score:</b></td><td><b>${(totalScore / data.length).toFixed(1)}</b> / 25</td></tr></table></body></html>`;
+                win.document.write(html); win.document.close(); setTimeout(() => { win.print(); }, 500);
+            } catch(e) { alert("Error fetching report."); }
+        }
+    </script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+</body>
+</html>
