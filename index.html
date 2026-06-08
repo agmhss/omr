@@ -58,6 +58,58 @@
         .camera-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 4px solid rgba(34, 197, 94, 0.5); box-sizing: border-box; pointer-events: none; border-radius: 6px; }
         .flash-highlight { animation: flashBg 1s ease-out; }
         @keyframes flashBg { 0% { background-color: #dcfce7; } 100% { background-color: #fff; } }
+        /* Questions Generator Card Styles */
+        .feature-card {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.2);
+        }
+        .feature-content {
+            flex: 1;
+        }
+        .feature-title {
+            color: #166534;
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .feature-desc {
+            color: #15803d;
+            font-size: 14px;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .feature-btn {
+            background: #16a34a;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+            margin-left: 20px;
+            box-shadow: 0 2px 4px rgba(22, 163, 74, 0.3);
+            transition: background 0.2s;
+        }
+        .feature-btn:hover {
+            background: #15803d;
+        }
+        
     </style>
 </head>
 <body>
@@ -196,7 +248,14 @@
             <canvas id="canvasWarped"></canvas>
             <canvas id="canvasInput" class="hidden"></canvas>
         </div>
-
+        
+       <div class="feature-card">
+                <div class="feature-content">
+                    <h4 class="feature-title">✨ Question Paper Generator</h4>
+                    <p class="feature-desc">AI தொழில்நுட்பம் மூலம் வெறும் நொடிகளில் வினாத்தாள்களை (Questions & Answer Keys) உருவாக்க, எங்கள் புதிய செயலியைப் பயன்படுத்தவும்.</p>
+                </div>
+                <a href="https://agmhss.github.io/questions-generator/" target="_blank" class="feature-btn">Try it Now 🚀</a>
+            </div>
     </div>
 
     <script>
